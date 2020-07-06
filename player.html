@@ -1,0 +1,375 @@
+<html>
+    <head>
+        <title>player</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+            @font-face {
+              font-family: "roboto";
+              src: url("res/fonts/Roboto-Black.ttf") format("truetype")/*,
+                    url("img/raptor.woff") format("woff");*/
+              unicode-range: U+000-5FF;  
+            }
+
+            body{
+                 -webkit-tap-highlight-color: transparent;
+            }
+
+            .topleft{
+               margin: auto;
+               position: absolute;
+               top: 0; left: 0; bottom: 0; right: 0;
+               height: 100%;
+            }
+           
+        </style>
+    </head>
+    <body>
+        <script type="text/javascript" src="res/createjs.min.js"></script>
+        <script type="text/javascript" src="res/cfg.js"></script>
+        <script type="text/javascript" src="res/dialogs.js"></script>
+        <canvas id="canv" class="topleft" width="800" height="645"></canvas>
+        <!-- <canvas id="canv" class="topleft" width="800" height="800"></canvas> -->
+    </body>
+
+        <script type="text/javascript">
+const DEBUG = location.href.indexOf('file://') > -1;
+const HINT_RADIUS = 40;
+const HINT_ERROR = 20;
+
+Array.prototype.random = function(){
+    if(!this.length) return null;
+    return this[Math.floor(Math.random() * this.length)];
+}
+
+
+const W = 800 * 1.2;
+const H = 645 * 1.2;
+document.getElementById('canv').setAttribute('width', W);
+document.getElementById('canv').setAttribute('height', H);
+
+var level = 1;
+var chatIndex = 0;
+var state = '';
+var hintsCount = 30;
+
+stage = new createjs.Stage("canv");
+stage.enableMouseOver(10);
+
+var queue = new createjs.LoadQueue(true);
+queue.on("complete", handleComplete, this);
+queue.loadManifest([
+    {id: "bg", src:"res/bg.png"},
+    {id: "char1", src:"res/char.png"},
+    {id: "char2", src:"res/char2.png"},
+    {id: "dialog_bg", src:"res/dialog.png"},
+    
+    {id: "hint", src:"res/hint.png"},
+    {id: "dalee", src:"res/dalee.png"},
+    {id: "next", src:"res/next.png"}
+]);
+queue.load();
+
+var scale = 1;
+var bg, char1, char2, dialogBG, nickText, phraseText, hintBtn, nextPicBtn, nextPhraseBtn, orig, copy, hintZone;
+var activeZones = [];
+
+function handleComplete() {
+    if(!state){//initial loading
+        bg = new createjs.Bitmap(queue.getResult("bg"));
+        let bounds = bg.getBounds();
+        var scale = Math.min(W / bounds.width, H / bounds.height);
+        bg.scaleX = bg.scaleY = scale;
+        stage.addChild(bg);
+
+        dialogBG = new createjs.Bitmap(queue.getResult("dialog_bg"));
+        dialogBG.scaleX = dialogBG.scaleY = scale;
+        stage.addChild(dialogBG);
+        dialogBG.x = W - dialogBG.getBounds().width * scale - 15;
+        dialogBG.y = H - dialogBG.getBounds().height * scale - 15;
+
+        char1 = new createjs.Bitmap(queue.getResult("char1"));
+        char1.scaleX = char1.scaleY = scale;
+        stage.addChild(char1);
+        char1.y = H - char1.getBounds().height * scale;
+
+        char2 = new createjs.Bitmap(queue.getResult("char2"));
+        char2.scaleX = char2.scaleY = scale;
+        stage.addChild(char2);
+        char2.y = H - char2.getBounds().height * scale;
+        char2.visible = false;
+
+        nickText = new createjs.Text("", "20px roboto", "#ffffff");
+        phraseText = new createjs.Text("", "20px roboto", "#000000");
+
+        nickText.x = 80 * 1.2;
+        nickText.y = 433 * 1.2;
+        stage.addChild(nickText);
+
+        phraseText.x = 106 * 1.2;
+        phraseText.y = 480 * 1.2;
+        phraseText.lineWidth = 650 * 1.2;
+        stage.addChild(phraseText);
+
+        hintBtn = new createjs.Bitmap(queue.getResult("hint"));
+        hintBtn.scaleX = hintBtn.scaleY = scale;
+        stage.addChild(hintBtn);
+        hintBtn.x = W - hintBtn.getBounds().width * scale - 18;
+        hintBtn.y = H - hintBtn.getBounds().height * scale - 18;
+        hintBtn.visible = false;
+        hintBtn.cursor = 'pointer';
+        hintBtn.addEventListener('click', hintClicked);
+
+        nextPhraseBtn = new createjs.Bitmap(queue.getResult("dalee"));
+        nextPhraseBtn.scaleX = nextPhraseBtn.scaleY = scale;
+        stage.addChild(nextPhraseBtn);
+        nextPhraseBtn.x = W - nextPhraseBtn.getBounds().width * scale - 18;
+        nextPhraseBtn.y = H - nextPhraseBtn.getBounds().height * scale - 18;
+        nextPhraseBtn.visible = false;
+        nextPhraseBtn.cursor = 'pointer';
+        nextPhraseBtn.addEventListener('click', nextClicked);
+
+        nextPicBtn = new createjs.Bitmap(queue.getResult("next"));
+        nextPicBtn.scaleX = nextPicBtn.scaleY = scale;
+        stage.addChild(nextPicBtn);
+        nextPicBtn.x = W - nextPicBtn.getBounds().width * scale - 18;
+        nextPicBtn.y = H - nextPicBtn.getBounds().height * scale - 18;
+        nextPicBtn.visible = false;
+        nextPicBtn.cursor = 'pointer';
+        nextPicBtn.addEventListener('click', nextClicked);
+
+        updateStateForLevel();
+
+        go();
+
+    }else if(state == 'guess'){//we`ve just loaded an level
+        let availW = W * 0.9;
+        let availH = H * 0.7;
+        let dist = 25;
+
+        let picSlotW = (availW - dist) / 2;
+        let picSlotH = availH;
+
+        clearPics();
+
+        orig = new createjs.Bitmap(queue.getResult("orig"));
+        copy = new createjs.Bitmap(queue.getResult("copy"));
+
+        bounds = orig.getBounds();
+        scale = Math.min(picSlotW / bounds.width, picSlotH / bounds.height);
+        orig.scaleX = orig.scaleY = copy.scaleX = copy.scaleY = scale;
+
+        let ty = (picSlotH - bounds.height * scale) / 2;
+        let tx1 = (W - dist - bounds.width * scale * 2) / 2;
+        let tx2 = tx1 + bounds.width * scale + dist;
+
+        stage.addChild(orig);
+        stage.addChild(copy);
+        orig.y = copy.y = ty;
+
+        if(Math.random() > 0.5){
+            copy.x = tx1;
+            orig.x = tx2;
+        }else{
+            copy.x = tx2;
+            orig.x = tx1;
+        }
+
+        nextPhraseBtn.visible = nextPicBtn.visible = false;
+        char2.visible = false;
+        char1.visible = true;
+        nickText.text = dialogs.char1;
+        phraseText.text = res[level].intro;
+
+        orig.addEventListener('click', origClicked);
+        copy.addEventListener('click', copyClicked);
+        // console.log(res[level]);
+        res[level].points.forEach((el, i) => {
+            getZonesPair(tx1, tx2, ty, el.x * scale, el.y * scale, i);
+        });
+
+        hintBtn.visible = true;
+    }
+
+    stage.update();
+}
+
+function clearPics(){
+    if(orig){
+        stage.removeChild(orig);
+        orig = null;
+    }
+    if(copy){
+        stage.removeChild(copy);
+        copy = null;
+    }
+
+    activeZones.forEach(el => {
+        el.graphics.clear();
+        stage.removeChild(el);
+    });
+    activeZones = [];
+    clearHintZone();
+}
+
+function clearHintZone(){
+    if(hintZone){
+        hintZone.visible = false;
+        stage.update();
+    }
+}
+
+function go(){
+    if(state == 'chat'){
+        clearPics();
+        var phrase = dialogs[level][chatIndex];
+        char1.visible = phrase.char == '1';
+        char2.visible = phrase.char == '2';
+        nextPhraseBtn.visible = phrase.btn == 'next';
+        nextPicBtn.visible = phrase.btn == 'nextpic';
+        nickText.text = phrase.char == '1' ? dialogs.char1 : dialogs.char2;
+        phraseText.text = phrase.text;
+        if(!dialogs[level][chatIndex + 1]){
+            state = 'guess';
+            chatIndex = 0;
+            // console.log('guess');
+        }else{
+            // console.log(chatIndex);
+            ++chatIndex;
+        }
+    }else if(state == 'guess'){
+        // console.log('about to load ', 'img/' + level + '.jpg');
+        queue.loadManifest([
+            {id: "orig", src: 'img/' + level + '.jpg'},
+            {id: "copy", src: 'img/' + level + '-1.jpg'}
+        ]);
+    }else if(state == 'guessed'){
+        phraseText.text = dialogs.whichiswhich;
+    }else if(state == 'solved' || state == 'failed'){
+        phraseText.text = (state == 'solved' ? dialogs.solvedPrefix : dialogs.failedPrefix) + res[level].outro;
+        ++level;
+        updateStateForLevel();
+        nextPicBtn.visible = true;
+    }
+    stage.update();
+}
+    
+function updateStateForLevel(){
+    if(dialogs[level]){
+        state = 'chat';
+    }else{
+        state = 'guess';
+    }
+}
+
+function zoneClicked(evt){
+    let ind = evt.target.pointIndex;
+    clearHintZone();
+    activeZones.forEach(el => {
+        if(el.pointIndex == ind && !el.guessed){
+            el.graphics.clear();
+            el.graphics.beginStroke('#00ff00');
+            el.graphics.moveTo(-4, -8);
+            el.graphics.lineTo(0, 0);
+            el.graphics.lineTo(8, -12);
+            el.guessed = true;
+            el.graphics.endStroke();
+        }
+    });
+    stage.update();
+    if(allZonesDone()){
+        hintBtn.visible = false;
+        state = 'guessed';
+        go();
+    }
+}
+
+function allZonesDone(){
+    for (var i = 0; i < activeZones.length; i++) {
+        if(!activeZones[i].guessed){
+            return false;
+        }
+    }
+    return true;
+}
+
+function origClicked(){
+    clearHintZone();
+    if(state == 'guessed'){
+        state = 'solved';
+        go();
+    }
+}
+
+function copyClicked(){
+    clearHintZone();
+    if(state == 'guessed'){
+        state = 'failed';
+        go();
+    }
+}
+
+function hintClicked(){
+    let arr = activeZones.filter(el => !el.guessed);
+    let pt = arr.random();
+    if(hintsCount > 0){
+        if(!hintZone){
+            hintZone = new createjs.Shape();
+            hintZone.graphics.beginStroke('#ffffff');
+            hintZone.graphics.drawCircle(0, 0, HINT_RADIUS);
+        }else if(hintZone.visible){
+            console.log('hint already active');
+            return;
+        }
+        stage.addChild(hintZone);
+        hintZone.visible = true;
+        hintZone.x = pt.x + (HINT_ERROR / 2 - Math.random() * HINT_ERROR);
+        hintZone.y = pt.y + (HINT_ERROR / 2 - Math.random() * HINT_ERROR);
+
+        stage.update();
+        --hintsCount;
+        console.log(`${hintsCount} hints left`);
+    }else{
+        alert('Buy some hints');
+    }
+}
+
+function nextClicked(){
+    go();
+}
+
+function getZonesPair(offX1, offX2, offY, x, y, index){
+    let z1 = new createjs.Shape();
+    let z2 = new createjs.Shape();
+
+    z1.graphics.beginFill(DEBUG ? '#ff00ff88' : '#c0c0c003');
+    z1.graphics.drawCircle(0, 0, 15);
+    z1.x = offX1 + x;
+    z1.y = offY + y;
+
+    z2.graphics.beginFill(DEBUG ? '#ff00ff88' : '#c0c0c003');
+    z2.graphics.drawCircle(0, 0, 15);
+    z2.x = offX2 + x;
+    z2.y = offY + y;
+
+    z1.pointIndex = z2.pointIndex = index;
+
+    stage.addChild(z1);
+    stage.addChild(z2);
+    if(DEBUG){
+        z1.cursor = 'pointer';
+        z2.cursor = 'pointer';
+    }
+    z1.addEventListener('click', zoneClicked);
+    z2.addEventListener('click', zoneClicked);
+
+    activeZones.push(z1, z2);
+}
+
+function handleSize(){
+    // console.log(window.innerWidth, window.innerHeight);
+}
+
+window.onresize = handleSize;
+        </script>
+</html>

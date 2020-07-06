@@ -1,0 +1,196 @@
+<html>
+    <head>
+        <title>editor</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+            @font-face {
+              font-family: "roboto";
+              src: url("res/fonts/Roboto-Black.ttf") format("truetype")/*,
+                    url("img/raptor.woff") format("woff");*/
+              unicode-range: U+000-5FF;  
+            }
+            canvas{
+                /*border: 1px solid black;*/
+            }
+            body{
+                 -webkit-tap-highlight-color: transparent;
+            }
+            .cross{
+                position: absolute;
+                pointer-events: none;
+            }
+            body, input, textarea{
+                font-family: 'roboto';
+            }
+           
+        </style>
+    </head>
+    <body>
+        <script type="text/javascript" src="res/cfg.js"></script>
+        <img id="src" src="">
+        <img id="changed" src="">
+        <span id="result"></span>
+        <br><input id="fname"><button onclick="load();">load</button>
+        <button onclick="save();">save</button>
+        <div id="inputs"></div>
+        
+        <img class="cross" id="cross1" src="img/crosshair.png">
+        <img class="cross" id="cross2" src="img/crosshair.png">
+    </body>
+
+        <script type="text/javascript">
+//point class
+function Point(x, y){
+    this.x = x;
+    this.y = y;
+}
+Point.prototype = { x : 0, y : 0, constructor : Point};
+
+var items = res || {};
+var current = '';
+var data = {intro: '', outro: '', points: []};
+
+var highlights = [];
+
+function getByID(id){
+    return document.getElementById(id);
+}
+
+function load(){
+    let val = getByID('fname').value;
+    getByID('src').setAttribute('src', 'img/' + val + '.jpg');
+    getByID('changed').setAttribute('src', 'img/' + val + '-1.jpg');
+    current = val;
+    data = items[current] || {intro: '', outro: '', points: []};
+    setTimeout(showActual, 50);
+    setTimeout(showActual, 60);
+}
+
+function handleMove(e){
+    e.preventDefault();
+    let el = getByID('src');
+    let el1 = getByID('changed');
+
+    let x = e.clientX - el.offsetLeft;
+    let y = e.clientY - el.offsetTop;
+    
+    let c1 = getByID('cross1');
+    let c2 = getByID('cross2');
+
+    c1.style.left = x + el.offsetLeft - c1.width / 2;
+    c1.style.top = y + el.offsetTop - c1.height / 2;
+
+    c2.style.left = x + el1.offsetLeft - c2.width / 2;
+    c2.style.top = y + el1.offsetTop - c2.height / 2;
+}
+
+function click(e){
+    e.preventDefault();
+    let el = getByID('src');
+    let x = e.clientX - el.offsetLeft;
+    let y = e.clientY - el.offsetTop;
+    
+    add(new Point(x, y));
+    showActual();
+}
+
+function clearEl(index){
+    data.points[index] = null;
+    showActual();
+}
+
+function add(p){
+    for (var i = 0; i < data.points.length; i++) {
+        if(!data.points[i]){
+            data.points[i] = p;
+            return;
+        }
+    }
+    data.points.push(p);
+}
+
+function showActual(){
+    let el = getByID('src');
+    let el1 = getByID('changed');
+
+    let arr = data.points.slice();
+    data.points = [];
+    for (var i = 0; i < arr.length; i++) {
+        // getByID('xp' + i).value = '';
+        // getByID('yp' + i).value = '';
+
+        if(getByID('hl' + i)){
+            getByID('hl' + i).style.display = 'none';
+            getByID('hl1' + i).style.display = 'none';
+        }
+        if(arr[i]){
+            data.points.push(arr[i]);
+        }
+    }
+    for (var i = 0; i < highlights.length; i++) {
+        highlights[i].style.display = 'none';
+    }
+    // items = [];
+    let list = getByID('inputs');
+    list.innerHTML = `intro:<br><textarea id="intro" rows="4" cols="50" onchange="data.intro = this.value">${data.intro}</textarea><br>outro:<br><textarea id="outro" rows="4" cols="50" onchange="data.outro = this.value">${data.outro}</textarea>`;
+
+    for (var i = 0; i < data.points.length; i++) {
+
+        list.innerHTML += `<br><input id="xp${i}" disabled value="${data.points[i].x}"><input disabled id="yp${i}" value="${data.points[i].y}"><button onclick="clearEl(${i});">x</button>`;
+
+        arr.push({x:  data.points[i].x, y:  data.points[i].y});
+        if(!getByID('hl' + i)){
+            var hl = document.createElement('img');
+            hl.setAttribute('class', 'cross');
+            hl.setAttribute('id', 'hl' + i);
+            hl.setAttribute('src', 'img/hl.png');
+            document.body.appendChild(hl);
+
+            var hl1 = document.createElement('img');
+            hl1.setAttribute('class', 'cross');
+            hl1.setAttribute('id', 'hl1' + i);
+            hl1.setAttribute('src', 'img/hl.png');
+            document.body.appendChild(hl1);
+            highlights.push(hl, hl1);           
+        }
+        getByID('hl' + i).style.left = data.points[i].x + el.offsetLeft - getByID('hl' + i).width / 2;
+        getByID('hl' + i).style.top = data.points[i].y + el.offsetTop - getByID('hl' + i).height / 2;
+        getByID('hl' + i).style.display = 'block';
+
+        getByID('hl1' + i).style.left = data.points[i].x + el1.offsetLeft - getByID('hl1' + i).width / 2;
+        getByID('hl1' + i).style.top = data.points[i].y + el1.offsetTop - getByID('hl1' + i).height / 2;
+        getByID('hl1' + i).style.display = 'block';
+    }
+}
+
+function save(){
+    items[current] = {points: data.points.slice(), intro: data.intro, outro: data.outro};
+    let r = 'var res = ' + JSON.stringify(items, null, '\t')
+    getByID('result').innerHTML = r;
+    download(r, 'cfg.js', 'text/plain');
+}
+
+// Function to download data to a file
+function download(data, filename, type) {
+    var file = new Blob([data], {type: type});
+    if (window.navigator.msSaveOrOpenBlob) // IE10+
+        window.navigator.msSaveOrOpenBlob(file, filename);
+    else { // Others
+        var a = document.createElement("a"),
+                url = URL.createObjectURL(file);
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(function() {
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);  
+        }, 0); 
+    }
+}
+
+getByID('src').addEventListener('mousemove', handleMove);
+getByID('src').addEventListener('click', click);
+        </script>
+</html>
