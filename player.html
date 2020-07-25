@@ -65,6 +65,7 @@ queue.loadManifest([
     {id: "dialog_bg", src:"res/dialog.png"},
     
     {id: "hint", src:"res/hint.png"},
+    {id: "help", src:"res/help.png"},
     {id: "dalee", src:"res/dalee.png"},
     {id: "next", src:"res/next.png"}
 ]);
@@ -314,17 +315,15 @@ function hintClicked(){
     let pt = arr.random();
     if(hintsCount > 0){
         if(!hintZone){
-            hintZone = new createjs.Shape();
-            hintZone.graphics.beginStroke('#ffffff');
-            hintZone.graphics.drawCircle(0, 0, HINT_RADIUS);
+            hintZone = new createjs.Bitmap(queue.getResult("help"))            
         }else if(hintZone.visible){
             console.log('hint already active');
             return;
         }
         stage.addChild(hintZone);
         hintZone.visible = true;
-        hintZone.x = pt.x + (HINT_ERROR / 2 - Math.random() * HINT_ERROR);
-        hintZone.y = pt.y + (HINT_ERROR / 2 - Math.random() * HINT_ERROR);
+        hintZone.x = pt.x - (hintZone.getBounds().width / 2 - Math.random() * HINT_ERROR);
+        hintZone.y = pt.y - (hintZone.getBounds().height / 2 - Math.random() * HINT_ERROR);
 
         stage.update();
         --hintsCount;
