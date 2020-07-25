@@ -4,12 +4,12 @@
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <style>
-            @font-face {
-              font-family: "roboto";
-              src: url("res/fonts/Roboto-Black.ttf") format("truetype")/*,
-                    url("img/raptor.woff") format("woff");*/
-              unicode-range: U+000-5FF;  
-            }
+            /*@font-face {*/
+              /*font-family: "roboto";*/
+              /*src: url("res/fonts/Roboto-Black.ttf") format("truetype")/*,*/
+                    /*url("img/raptor.woff") format("woff");*/*/
+              /*unicode-range: U+000-5FF;  */
+            /*}*/
 
             body{
                  -webkit-tap-highlight-color: transparent;
@@ -67,7 +67,8 @@ queue.loadManifest([
     {id: "hint", src:"res/hint.png"},
     {id: "help", src:"res/help.png"},
     {id: "dalee", src:"res/dalee.png"},
-    {id: "next", src:"res/next.png"}
+    {id: "next", src:"res/next.png"},
+    {id: "roboto", src:"res/fonts/Roboto-Black.ttf", type:"font"}
 ]);
 queue.load();
 
@@ -104,7 +105,7 @@ function handleComplete() {
         phraseText = new createjs.Text("", "20px roboto", "#000000");
 
         nickText.x = 80 * 1.2;
-        nickText.y = 433 * 1.2;
+        nickText.y = 437 * 1.2;
         stage.addChild(nickText);
 
         phraseText.x = 106 * 1.2;
