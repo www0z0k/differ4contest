@@ -10,16 +10,18 @@
                     /*url("img/raptor.woff") format("woff");*/*/
               /*unicode-range: U+000-5FF;  */
             /*}*/
-
+            html, body { height:100%; background-color: #000000;}
             body{
-                 -webkit-tap-highlight-color: transparent;
+                margin:0; padding:0; overflow:hidden;
+                -webkit-tap-highlight-color: transparent;
             }
 
             .topleft{
-               margin: auto;
-               position: absolute;
-               top: 0; left: 0; bottom: 0; right: 0;
-               height: 100%;
+               width:100%; height:100%;
+            }
+            
+            .center {
+              position: fixed;
             }
            
         </style>
@@ -28,11 +30,15 @@
         <script type="text/javascript" src="res/createjs.min.js"></script>
         <script type="text/javascript" src="res/cfg.js"></script>
         <script type="text/javascript" src="res/dialogs.js"></script>
-        <canvas id="canv" class="topleft" width="800" height="645"></canvas>
+        <img id="preloader" class="center" src="res/prel.gif"></img>
+        <canvas id="canv" class="topleft" width="960" height="774"></canvas>
         <!-- <canvas id="canv" class="topleft" width="800" height="800"></canvas> -->
     </body>
 
         <script type="text/javascript">
+
+handleSize();
+
 const DEBUG = location.href.indexOf('file://') > -1;
 const HINT_RADIUS = 40;
 const HINT_ERROR = 20;
@@ -43,10 +49,8 @@ Array.prototype.random = function(){
 }
 
 
-const W = 800 * 1.2;
-const H = 645 * 1.2;
-document.getElementById('canv').setAttribute('width', W);
-document.getElementById('canv').setAttribute('height', H);
+const W = 960;
+const H = 744;
 
 var level = 1;
 var chatIndex = 0;
@@ -73,31 +77,34 @@ queue.loadManifest([
 queue.load();
 
 var scale = 1;
-var bg, char1, char2, dialogBG, nickText, phraseText, hintBtn, nextPicBtn, nextPhraseBtn, orig, copy, hintZone;
+var bg, char1, char2, dialogBG, nickText, phraseText, hintBtn, nextPicBtn, nextPhraseBtn, orig, copy, hintZone, hostContainer;
 var activeZones = [];
 
 function handleComplete() {
     if(!state){//initial loading
+        hostContainer = new createjs.Container();
+        stage.addChild(hostContainer);
+
         bg = new createjs.Bitmap(queue.getResult("bg"));
         let bounds = bg.getBounds();
         var scale = Math.min(W / bounds.width, H / bounds.height);
         bg.scaleX = bg.scaleY = scale;
-        stage.addChild(bg);
+        hostContainer.addChild(bg);
 
         dialogBG = new createjs.Bitmap(queue.getResult("dialog_bg"));
         dialogBG.scaleX = dialogBG.scaleY = scale;
-        stage.addChild(dialogBG);
+        hostContainer.addChild(dialogBG);
         dialogBG.x = W - dialogBG.getBounds().width * scale - 15;
         dialogBG.y = H - dialogBG.getBounds().height * scale - 15;
 
         char1 = new createjs.Bitmap(queue.getResult("char1"));
         char1.scaleX = char1.scaleY = scale;
-        stage.addChild(char1);
+        hostContainer.addChild(char1);
         char1.y = H - char1.getBounds().height * scale;
 
         char2 = new createjs.Bitmap(queue.getResult("char2"));
         char2.scaleX = char2.scaleY = scale;
-        stage.addChild(char2);
+        hostContainer.addChild(char2);
         char2.y = H - char2.getBounds().height * scale;
         char2.visible = false;
 
@@ -106,16 +113,16 @@ function handleComplete() {
 
         nickText.x = 95 * 1.2;
         nickText.y = 444 * 1.2;
-        stage.addChild(nickText);
+        hostContainer.addChild(nickText);
 
         phraseText.x = 110 * 1.2;
         phraseText.y = 480 * 1.2;
         phraseText.lineWidth = 650 * 1.2;
-        stage.addChild(phraseText);
+        hostContainer.addChild(phraseText);
 
         hintBtn = new createjs.Bitmap(queue.getResult("hint"));
         hintBtn.scaleX = hintBtn.scaleY = scale;
-        stage.addChild(hintBtn);
+        hostContainer.addChild(hintBtn);
         hintBtn.x = W - hintBtn.getBounds().width * scale - 18;
         hintBtn.y = H - hintBtn.getBounds().height * scale - 18;
         hintBtn.visible = false;
@@ -124,7 +131,7 @@ function handleComplete() {
 
         nextPhraseBtn = new createjs.Bitmap(queue.getResult("dalee"));
         nextPhraseBtn.scaleX = nextPhraseBtn.scaleY = scale;
-        stage.addChild(nextPhraseBtn);
+        hostContainer.addChild(nextPhraseBtn);
         nextPhraseBtn.x = W - nextPhraseBtn.getBounds().width * scale - 18;
         nextPhraseBtn.y = H - nextPhraseBtn.getBounds().height * scale - 18;
         nextPhraseBtn.visible = false;
@@ -133,7 +140,7 @@ function handleComplete() {
 
         nextPicBtn = new createjs.Bitmap(queue.getResult("next"));
         nextPicBtn.scaleX = nextPicBtn.scaleY = scale;
-        stage.addChild(nextPicBtn);
+        hostContainer.addChild(nextPicBtn);
         nextPicBtn.x = W - nextPicBtn.getBounds().width * scale - 18;
         nextPicBtn.y = H - nextPicBtn.getBounds().height * scale - 18;
         nextPicBtn.visible = false;
@@ -141,6 +148,9 @@ function handleComplete() {
         nextPicBtn.addEventListener('click', nextClicked);
 
         updateStateForLevel();
+
+        document.getElementById('preloader').style.display = 'none';
+        handleSize();
 
         go();
 
@@ -165,8 +175,8 @@ function handleComplete() {
         let tx1 = (W - dist - bounds.width * scale * 2) / 2;
         let tx2 = tx1 + bounds.width * scale + dist;
 
-        stage.addChild(orig);
-        stage.addChild(copy);
+        hostContainer.addChild(orig);
+        hostContainer.addChild(copy);
         orig.y = copy.y = ty;
 
         if(Math.random() > 0.5){
@@ -367,7 +377,30 @@ function getZonesPair(offX1, offX2, offY, x, y, index){
 }
 
 function handleSize(){
-    // console.log(window.innerWidth, window.innerHeight);
+    if(window.innerWidth < window.innerHeight){
+        document.getElementById('preloader').style.width = '100%';
+        document.getElementById('preloader').style.height = 'auto';
+        document.getElementById('preloader').style.top = (window.innerHeight - window.innerWidth) / 2 + 'px';
+    }else{        
+        document.getElementById('preloader').style.height = '100%';
+        document.getElementById('preloader').style.width = 'auto';
+        document.getElementById('preloader').style.left = (window.innerWidth - window.innerHeight) / 2 + 'px';
+    }
+
+    document.getElementById('canv').setAttribute('width', window.innerWidth);
+    document.getElementById('canv').setAttribute('height', window.innerHeight);
+    
+    if(hostContainer){
+        let k = Math.min(window.innerWidth / W,  window.innerHeight / H);
+
+        hostContainer.scaleX = k;
+        hostContainer.scaleY = k;
+
+        hostContainer.x = (window.innerWidth - W * k) / 2;
+        hostContainer.y = (window.innerHeight - H * k) / 2;
+
+        stage.update();
+    }
 }
 
 window.onresize = handleSize;
